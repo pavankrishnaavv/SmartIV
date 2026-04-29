@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMART IV PRO | TELEMETRY DOMINANCE</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Text:wght@900&family=Bebas+Neue&family=Inter:wght@300;400;700;900&family=JetBrains+Mono:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- GSAP Core & ScrollTrigger -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <!-- Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        :root {
+            --neon-cyan: #00e5ff;
+            --neon-cyan-dim: rgba(0, 229, 255, 0.15);
+            --emergency-red: #ff2a2a;
+            --emergency-red-dim: rgba(255, 42, 42, 0.15);
+            --safety-green: #39ff14;
+            --dark-bg: #020203;
+            --surface: rgba(10, 10, 15, 0.7);
+            --surface-light: #15151c;
+            --grid-color: rgba(0, 229, 255, 0.04);
+            --text-main: #f0f0f0;
+            --text-muted: #8892b0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            background-color: var(--dark-bg);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            cursor: none; /* Custom cursor */
+        }
+
+        /* --- BACKGROUNDS & IMMERSIVE OVERLAYS --- */
+        #network-canvas {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -2; pointer-events: none; opacity: 0.8;
+        }
+
+        .grid-bg {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: -3; pointer-events: none;
+        }
+
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.15));
+            background-size: 100% 4px; z-index: 9998; pointer-events: none; opacity: 0.4;
+        }
+
+        .vignette {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.9) 100%);
+            z-index: 9997; pointer-events: none;
+        }
+
+        /* --- CUSTOM TARGET-LOCK CURSOR --- */
+        .cursor-dot {
+            position: fixed; top: 0; left: 0; width: 4px; height: 4px;
+            background: var(--neon-cyan); border-radius: 50%;
+            pointer-events: none; z-index: 10000;
+            transform: translate(-50%, -50%); box-shadow: 0 0 10px var(--neon-cyan);
+            transition: background 0.2s, box-shadow 0.2s, opacity 0.2s;
+        }
+        .cursor-ring {
+            position: fixed; top: 0; left: 0; width: 40px; height: 40px;
+            border: 1px solid rgba(0, 229, 255, 0.4); border-radius: 50%;
+            pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: width 0.15s, height 0.15s, opacity 0.2s;
+        }
+        
+        /* Bracket Target Locks */
+        .bracket {
+            position: fixed; width: 12px; height: 12px; border: 2px solid var(--emergency-red);
+            pointer-events: none; z-index: 10001; opacity: 0;
+            transition: top 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                        left 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                        opacity 0.2s;
+        }
+        .br-tl { border-right: none; border-bottom: none; transform: translate(-5px, -5px); }
+        .br-tr { border-left: none; border-bottom: none; transform: translate(5px, -5px); }
+        .br-bl { border-right: none; border-top: none; transform: translate(-5px, 5px); }
+        .br-br { border-left: none; border-top: none; transform: translate(5px, 5px); }
+
+        /* --- SYSTEM TOAST NOTIFICATIONS --- */
+        #toast-container {
+            position: fixed; bottom: 40px; right: 40px; z-index: 10005;
+            display: flex; flex-direction: column; gap: 15px; pointer-events: none;
+        }
+
+        .sys-toast {
+            background: rgba(5, 5, 8, 0.95); backdrop-filter: blur(10px);
+            border: 1px solid #222; border-left: 4px solid var(--emergency-red);
+            padding: 20px 25px; width: 350px;
+            font-family: 'JetBrains Mono', monospace; color: #fff;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px var(--emergency-red-dim);
+            position: relative; overflow: hidden;
+            transform: translateX(120%) skewX(-5deg); opacity: 0;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .sys-toast.active { transform: translateX(0) skewX(0); opacity: 1; pointer-events: auto; }
+        .sys-toast::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            animation: scan 2s infinite; pointer-events: none;
+        }
+        @keyframes scan { 100% { left: 200%; } }
+
+        /* --- LOADER --- */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 11000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        }
+        .sys-status { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--neon-cyan); margin-bottom: 20px; letter-spacing: 2px;}
+        .loader-bar { width: clamp(250px, 40vw, 400px); height: 1px; background: #222; position: relative; overflow: hidden; margin-top: 20px; }
+        .loader-progress { position: absolute; left: 0; top: 0; width: 0%; height: 100%; background: var(--neon-cyan); box-shadow: 0 0 15px var(--neon-cyan); }
+
+        /* --- TOP TELEMETRY TICKER --- */
+        .ticker-wrap {
+            position: fixed; top: 0; width: 100%; height: 35px;
+            background: rgba(10,10,10,0.8); backdrop-filter: blur(5px);
+            color: var(--neon-cyan); border-bottom: 1px solid var(--neon-cyan-dim);
+            overflow: hidden; z-index: 4000; display: flex; align-items: center;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 700;
+        }
+        .ticker-move { display: flex; white-space: nowrap; animation: ticker 25s linear infinite; }
+        .ticker-item { padding: 0 3rem; display: flex; align-items: center; gap: 10px; }
+        .ticker-item i { color: var(--emergency-red); animation: pulse 1s infinite alternate; }
+        @keyframes pulse { 0% { opacity: 0.5; } 100% { opacity: 1; } }
+        @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+        /* --- UI COMPONENTS & BUTTONS --- */
+        .uvp-badge {
+            background: rgba(255, 42, 42, 0.05); border: 1px solid var(--emergency-red);
+            color: var(--emergency-red); padding: 8px 20px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 700;
+            display: inline-block; letter-spacing: 2px; margin-bottom: 24px;
+            text-transform: uppercase; box-shadow: inset 0 0 10px var(--emergency-red-dim), 0 0 15px var(--emergency-red-dim);
+        }
+
+        .cta-btn {
+            position: relative; display: inline-flex; align-items: center; justify-content: center;
+            background: rgba(0, 0, 0, 0.5); color: var(--neon-cyan); backdrop-filter: blur(5px);
+            padding: 18px 40px; font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.6rem; letter-spacing: 3px; text-decoration: none;
+            border: 1px solid var(--neon-cyan);
+            transition: all 0.3s ease;
+            overflow: hidden; z-index: 1;
+        }
+        .cta-btn::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: rgba(0, 229, 255, 0.2); z-index: -1; transition: left 0.3s ease;
+        }
+        .cta-btn::after {
+            content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+            background: var(--neon-cyan); transition: width 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: -1;
+        }
+        .cta-btn:hover { color: #000; box-shadow: 0 0 30px var(--neon-cyan-dim); border-color: transparent; }
+        .cta-btn:hover::before { left: 0; }
+        .cta-btn:hover::after { width: 100%; }
+        
+        .cta-btn.solid { border-color: #fff; color: #fff; }
+        .cta-btn.solid::after { background: #fff; }
+        .cta-btn.solid:hover { color: #000; }
+
+        /* --- HOLOGRAPHIC 3D HERO TITLE --- */
+        .hero { min-height: 100vh; position: relative; display: flex; justify-content: center; align-items: center; padding: 120px 5% 60px; perspective: 1500px; }
+        .hero-img {
+            position: absolute; top: -5%; left: -5%; width: 110%; height: 110%;
+            object-fit: cover; filter: brightness(0.1) contrast(1.5) saturate(0); z-index: -4;
+        }
+        .hero-content { position: relative; z-index: 10; text-align: center; max-width: 1200px; width: 100%; transform-style: preserve-3d; }
+        
+        .hero-title {
+            font-family: 'Big Shoulders Stencil Text', sans-serif;
+            font-size: clamp(4rem, 13vw, 12rem);
+            line-height: 0.85; margin-bottom: 24px; text-transform: uppercase;
+            text-shadow: 0 10px 20px rgba(0,0,0,0.9);
+            position: relative;
+            transform-style: preserve-3d;
+            will-change: transform, text-shadow;
+            transition: transform 0.1s ease-out, text-shadow 0.1s ease-out;
+            cursor: default;
+        }
+        .hero-title span { 
+            color: var(--neon-cyan); display: inline-block; 
+            transform: translateZ(30px); /* 3D pop for inner text */
+            text-shadow: 0 0 40px var(--neon-cyan-dim); 
+        }
+
+        .hero-desc {
+            font-size: clamp(0.9rem, 1.5vw, 1.1rem); color: var(--text-muted);
+            max-width: 800px; margin: 0 auto 40px; line-height: 1.8; font-family: 'JetBrains Mono', monospace;
+            background: rgba(0,0,0,0.6); padding: 20px; border: 1px solid #222; border-left: 3px solid var(--neon-cyan); backdrop-filter: blur(5px);
+            text-align: left;
+        }
+
+        /* --- VIDEO SECTION --- */
+        .video-wrapper {
+            width: 100%; max-width: 1000px; margin: 60px auto 0;
+            border: 1px solid #333; background: #000; aspect-ratio: 16/9;
+            position: relative; overflow: hidden; box-shadow: 0 30px 60px rgba(0,0,0,0.9);
+        }
+        .video-placeholder { width: 100%; height: 100%; object-fit: cover; opacity: 0.5; filter: grayscale(100%) contrast(1.2); }
+        .play-btn {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 90px; height: 90px; border-radius: 50%; background: rgba(255, 42, 42, 0.8);
+            display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);
+            z-index: 5; border: 1px solid rgba(255,255,255,0.2);
+        }
+        .play-btn i { font-size: 2.5rem; color: #fff; margin-left: 5px; }
+        .vid-hud {
+            position: absolute; bottom: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--neon-cyan); pointer-events: none;
+        }
+        .vid-label { background: rgba(0,0,0,0.8); padding: 5px 10px; border-left: 2px solid var(--neon-cyan); }
+        .vid-rec { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.8); padding: 5px 10px; color: var(--emergency-red); }
+        .vid-rec span { width: 8px; height: 8px; background: var(--emergency-red); border-radius: 50%; animation: pulse 1s infinite; }
+
+        /* --- TECHNICAL SPECIFICATIONS (NEW DENSE JARGON GRID) --- */
+        .specs-section { padding: 120px 5%; border-top: 1px dashed #333; background: rgba(5,5,8,0.8); position: relative; z-index: 5; }
+        .section-header { text-align: center; margin-bottom: 60px; }
+        .section-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(3rem, 6vw, 4.5rem); letter-spacing: 3px; }
+        .section-subtitle { font-family: 'JetBrains Mono', monospace; color: var(--neon-cyan); text-transform: uppercase; font-size: 0.9rem; margin-bottom: 10px; letter-spacing: 2px; }
+
+        .specs-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1400px; margin: 0 auto;
+        }
+        .spec-card {
+            background: #08080a; border: 1px solid #1a1a24; padding: 30px;
+            font-family: 'JetBrains Mono', monospace; position: relative; overflow: hidden;
+            transition: 0.3s;
+        }
+        .spec-card:hover { border-color: var(--neon-cyan); box-shadow: 0 0 20px rgba(0,229,255,0.1); background: #0a0a0f; }
+        .spec-card::before { content: '>'; position: absolute; top: 30px; left: 15px; color: var(--neon-cyan); font-weight: bold; }
+        .spec-title { font-size: 1rem; color: #fff; margin-bottom: 15px; padding-left: 15px; font-weight: 900; letter-spacing: 1px; }
+        .spec-detail { font-size: 0.8rem; color: var(--text-muted); line-height: 1.6; padding-left: 15px; }
+        .spec-highlight { color: var(--safety-green); }
+
+        /* --- DEPLOYMENT / PRICING (3D TILT CARDS) --- */
+        .deploy-section { padding: 120px 5%; position: relative; border-top: 1px solid #111; }
+        .pricing-grid { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto; perspective: 1200px; }
+        
+        .price-card {
+            background: rgba(15, 15, 20, 0.85); backdrop-filter: blur(10px);
+            border: 1px solid #333; width: 100%; max-width: 420px;
+            padding: 60px 40px; position: relative; transition: border-color 0.3s, box-shadow 0.3s;
+            transform-style: preserve-3d;
+        }
+        .price-card:hover { border-color: #555; box-shadow: 0 30px 60px rgba(0,0,0,0.8); z-index: 10; }
+        
+        .price-card.pro { border-color: rgba(0, 229, 255, 0.4); background: linear-gradient(180deg, rgba(0, 229, 255, 0.05) 0%, rgba(10, 10, 15, 0.95) 100%); }
+        .price-card.pro:hover { border-color: var(--neon-cyan); box-shadow: 0 30px 60px rgba(0,0,0,0.9), 0 0 30px var(--neon-cyan-dim); }
+        .price-card.pro::before {
+            content: 'ENTERPRISE STANDARD'; position: absolute; top: 0; left: 50%; transform: translate(-50%, -50%) translateZ(20px);
+            background: var(--neon-cyan); color: #000; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 900; padding: 6px 16px; box-shadow: 0 5px 15px rgba(0,229,255,0.3);
+        }
+        
+        /* 3D Inner Content */
+        .card-inner { transform: translateZ(40px); pointer-events: none; } 
+        .card-inner > * { pointer-events: auto; } /* Re-enable clicks inside */
+
+        .pc-title { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; color: #fff; margin-bottom: 5px; letter-spacing: 2px; }
+        .pc-desc { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--neon-cyan); margin-bottom: 30px; border-bottom: 1px dashed #333; padding-bottom: 15px; }
+        .pc-price { font-family: 'Bebas Neue', sans-serif; font-size: 4rem; line-height: 1; color: #fff; margin-bottom: 30px; }
+        .pc-price span { font-size: 1.2rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+        .pc-features { list-style: none; margin-bottom: 40px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; }
+        .pc-features li { padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #ccc; display: flex; align-items: center; gap: 15px; }
+        .pc-features li i { color: var(--neon-cyan); font-size: 1.2rem; }
+        .pc-features li.disabled { color: #444; }
+        .pc-features li.disabled i { color: #444; }
+
+        /* --- FOOTER / TERMINAL --- */
+        footer { background: #010101; padding: 100px 5% 40px; border-top: 2px solid var(--emergency-red); position: relative; }
+        footer::before {
+            content: 'SECURE TERMINAL ACTIVE'; position: absolute; top: -15px; left: 5%; background: var(--emergency-red); color: #000;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 900; padding: 5px 15px; letter-spacing: 2px;
+        }
+        
+        .footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; max-width: 1400px; margin: 0 auto; align-items: center; }
+        
+        .contact-terminal {
+            background: #050508; border: 1px solid #333; padding: 30px; font-family: 'JetBrains Mono', monospace;
+            box-shadow: inset 0 0 20px rgba(0,0,0,1); position: relative;
+        }
+        .contact-terminal::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--neon-cyan); }
+        .terminal-header { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #222; padding-bottom: 10px; }
+        .terminal-dot { width: 12px; height: 12px; border-radius: 50%; background: #333; }
+        .terminal-dot:nth-child(1) { background: var(--emergency-red); }
+        .terminal-dot:nth-child(2) { background: #ffb86c; }
+        .terminal-dot:nth-child(3) { background: var(--safety-green); }
+        
+        .contact-form { display: flex; flex-direction: column; gap: 15px; }
+        .contact-form input, .contact-form textarea {
+            width: 100%; background: rgba(0,0,0,0.5); border: 1px solid #222; padding: 15px;
+            color: var(--neon-cyan); font-family: 'JetBrains Mono', monospace; outline: none; transition: 0.3s;
+        }
+        .contact-form input:focus, .contact-form textarea:focus { border-color: var(--neon-cyan); background: rgba(0,229,255,0.02); }
+        .contact-form button {
+            background: var(--neon-cyan); border: none; color: #000; padding: 15px;
+            font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 2px; cursor: pointer; transition: 0.3s;
+        }
+        .contact-form button:hover { background: #fff; box-shadow: 0 0 20px var(--neon-cyan-dim); }
+        
+        .footer-bottom {
+            margin-top: 100px; padding-top: 30px; border-top: 1px solid #111;
+            display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #555;
+        }
+        .footer-mail { display: inline-flex; align-items: center; gap: 8px; color: var(--neon-cyan); text-decoration: none; border-bottom: 1px dashed rgba(0,229,255,0.3); padding-bottom: 2px; }
+
+        @media (max-width: 900px) {
+            .footer-grid, .specs-grid { grid-template-columns: 1fr; }
+            .hero-title { font-size: 16vw; }
+            .footer-bottom { flex-direction: column; gap: 15px; text-align: center; }
+            .sys-toast { width: calc(100vw - 40px); right: 20px; bottom: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Immersive Canvas Background -->
+    <canvas id="network-canvas"></canvas>
+
+    <!-- Structural Overlays -->
+    <div class="grid-bg"></div>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <!-- Custom Target-Lock Cursor -->
+    <div class="cursor-dot"></div>
+    <div class="cursor-ring"></div>
+    
+    <!-- Target Brackets -->
+    <div class="bracket br-tl"></div>
+    <div class="bracket br-tr"></div>
+    <div class="bracket br-bl"></div>
+    <div class="bracket br-br"></div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
+
+    <!-- Telemetry Ticker -->
+    <div class="ticker-wrap">
+        <div class="ticker-move">
+            <div class="ticker-item"><i class="ph-fill ph-warning"></i> EMI_SHIELD: NOMINAL</div>
+            <div class="ticker-item"><i class="ph ph-activity"></i> VALVE_LATENCY: 41.2ms</div>
+            <div class="ticker-item"><i class="ph ph-wifi-high"></i> PAYLOAD: AES-256 ENCRYPTED</div>
+            <div class="ticker-item"><i class="ph ph-drop"></i> TARE_CALIBRATION: ACTIVE PID</div>
+            <div class="ticker-item"><i class="ph ph-shield-check"></i> MCU_TEMP: 34.8°C</div>
+            <!-- Duplicate for infinite loop -->
+            <div class="ticker-item"><i class="ph-fill ph-warning"></i> EMI_SHIELD: NOMINAL</div>
+            <div class="ticker-item"><i class="ph ph-activity"></i> VALVE_LATENCY: 41.2ms</div>
+            <div class="ticker-item"><i class="ph ph-wifi-high"></i> PAYLOAD: AES-256 ENCRYPTED</div>
+            <div class="ticker-item"><i class="ph ph-drop"></i> TARE_CALIBRATION: ACTIVE PID</div>
+            <div class="ticker-item"><i class="ph ph-shield-check"></i> MCU_TEMP: 34.8°C</div>
+        </div>
+    </div>
+
+    <!-- Cinematic Loader -->
+    <div id="loader">
+        <div class="sys-status" id="loading-tagline">INITIALIZING KERNEL...</div>
+        <h2 style="font-family: 'Bebas Neue'; font-size: 4rem; letter-spacing: 8px; color: #fff; text-shadow: 0 0 20px rgba(255,255,255,0.2);">SMART IV <span style="color: var(--neon-cyan);">PRO</span></h2>
+        <div class="loader-bar"><div class="loader-progress"></div></div>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <img src="https://images.unsplash.com/photo-1516549655169-df83a0774514?q=80&w=2070&auto=format&fit=crop" class="hero-img" alt="Medical Tech Background">
+        
+        <div class="hero-content">
+            <div class="uvp-badge reveal-up">MISSION CRITICAL IoT INTERCEPT</div>
+            
+            <h1 class="hero-title reveal-up" style="animation-delay: 0.1s;">ZERO BACKFLOW.<br><span>TOTAL CONTROL.</span></h1>
+            
+            <div class="hero-desc reveal-up" style="animation-delay: 0.2s;">
+                <span style="color: var(--emergency-red);">[CRITICAL AVOIDANCE INITIATED]</span><br><br>
+                Deploying hardware-level edge-triggered solenoid interception to eliminate venous blood backflow in high-density general wards. Engineering out human cognitive overload via precision automated clamping and isolated telemetry networking.
+            </div>
+            
+            <div style="display: flex; gap: 30px; justify-content: center; flex-wrap: wrap;" class="reveal-up" style="animation-delay: 0.3s;">
+                <a href="#purchase" class="cta-btn hover-target">PROCURE HARDWARE</a>
+                <a href="#demo" class="cta-btn solid hover-target">ACCESS TERMINAL</a>
+            </div>
+
+            <!-- Video Module -->
+            <div class="video-wrapper hover-target reveal-up" style="animation-delay: 0.4s; margin-top: 80px;">
+                <img src="https://images.unsplash.com/photo-1551076805-e1869033e561?q=80&w=1932&auto=format&fit=crop" class="video-placeholder" alt="Device Demo">
+                <div class="play-btn"><i class="ph-fill ph-play"></i></div>
+                <div class="vid-hud">
+                    <div class="vid-label">SYS_DEMO_REEL_v4.mp4</div>
+                    <div class="vid-rec"><span></span> LIVE SIMULATION</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dense Technical Specifications Grid -->
+    <section class="specs-section">
+        <div class="section-header reveal-up">
+            <div class="section-subtitle">// Engineering Documentation Extract</div>
+            <h2 class="section-title" style="color: #fff;">SYSTEM ARCHITECTURE</h2>
+        </div>
+        
+        <div class="specs-grid">
+            <div class="spec-card reveal-up">
+                <div class="spec-title">COMPUTE CORE & OS</div>
+                <div class="spec-detail">
+                    > MCU: ESP32-WROOM-32E<br>
+                    > CLOCK: 240MHz Xtensa Dual-Core<br>
+                    > KERNEL: FreeRTOS Implementation<br>
+                    > FAULT_TOLERANCE: <span class="spec-highlight">Hardware Watchdog Timer (WDT) Active</span>
+                </div>
+            </div>
+            <div class="spec-card reveal-up" style="animation-delay: 0.1s;">
+                <div class="spec-title">SENSORY ACQUISITION</div>
+                <div class="spec-detail">
+                    > ADC: HX711 24-bit Micro-variation Bridge<br>
+                    > LOAD_CELL: 1kg Precision Strain Gauge<br>
+                    > ISOLATION: Galvanic isolation boundary<br>
+                    > NOISE: <span class="spec-highlight">Physical EMI Shielding Enclosure</span>
+                </div>
+            </div>
+            <div class="spec-card reveal-up" style="animation-delay: 0.2s;">
+                <div class="spec-title">ACTUATION LOGIC</div>
+                <div class="spec-detail">
+                    > HARDWARE: 12V Normally-Closed Solenoid<br>
+                    > LATENCY: Verified < 42ms response<br>
+                    > DRIVER: Logic-level MOSFET switching<br>
+                    > FAILSAFE: <span class="spec-highlight">Mechanical pinch default on power-loss</span>
+                </div>
+            </div>
+            <div class="spec-card reveal-up" style="animation-delay: 0.3s;">
+                <div class="spec-title">FIRMWARE ALGORITHMS</div>
+                <div class="spec-detail">
+                    > CALIBRATION: Auto-Tare via PID Controller loop<br>
+                    > FLUID_DYNAMICS: Non-Newtonian flow estimation<br>
+                    > ARTIFACTS: Capillary action mitigation logic<br>
+                    > UPDATES: <span class="spec-highlight">Encrypted Over-The-Air (OTA) Delta flashing</span>
+                </div>
+            </div>
+            <div class="spec-card reveal-up" style="animation-delay: 0.4s;">
+                <div class="spec-title">NETWORK PROTOCOLS</div>
+                <div class="spec-detail">
+                    > LOCAL: Zero-config mDNS UDP multicasting<br>
+                    > CLOUD: MQTT v3.1.1 Broker connection<br>
+                    > SECURITY: TLS 1.2 Handshake enforcement<br>
+                    > INTEGRITY: <span class="spec-highlight">AES-256 Payload Encryption</span>
+                </div>
+            </div>
+            <div class="spec-card reveal-up" style="animation-delay: 0.5s;">
+                <div class="spec-title">PHYSICAL ENCLOSURE</div>
+                <div class="spec-detail">
+                    > MATERIAL: Medical-grade Polycarbonate<br>
+                    > RATING: IP54 (Fluid splash resistant)<br>
+                    > MTBF: Estimated > 50,000 operational cycles<br>
+                    > POWER: <span class="spec-highlight">3000mAh internal LiPo + Type-C 5V in</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Deployment / Pricing -->
+    <section class="deploy-section" id="purchase">
+        <div class="section-header reveal-up">
+            <div class="section-subtitle">// Hardware Procurement Matrix</div>
+            <h2 class="section-title">DEPLOYMENT TOPOLOGY</h2>
+        </div>
+
+        <div class="pricing-grid">
+            <!-- Card 1 -->
+            <div class="price-card tilt-card hover-target reveal-up">
+                <div class="card-inner">
+                    <h3 class="pc-title scramble-hover">SOLO EDGE</h3>
+                    <p class="pc-desc">STANDALONE LOCAL NODE</p>
+                    <div class="pc-price">₹5,000<span>/unit</span></div>
+                    
+                    <ul class="pc-features">
+                        <li><i class="ph-bold ph-broadcast"></i> Local mDNS Subnet Discovery</li>
+                        <li><i class="ph-bold ph-cpu"></i> Isolated ESP32 Intercept Logic</li>
+                        <li><i class="ph-bold ph-battery-charging"></i> 48hr UPS Battery Fallback</li>
+                        <li class="disabled"><i class="ph-bold ph-x"></i> MQTT Cloud Broker Sync</li>
+                    </ul>
+                    
+                    <button class="cta-btn deploy-trigger hover-target" style="width: 100%; border-color: #555; color: #fff;">REQUEST QUOTE</button>
+                </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="price-card pro tilt-card hover-target reveal-up" style="animation-delay: 0.2s;">
+                <div class="card-inner">
+                    <h3 class="pc-title scramble-hover">WARD MASTER</h3>
+                    <p class="pc-desc">HOSPITAL CLOUD INFRASTRUCTURE</p>
+                    <div class="pc-price">₹4,000<span>/unit</span></div>
+                    
+                    <ul class="pc-features">
+                        <li><i class="ph-bold ph-cloud-check"></i> AWS IoT Core Deep Integration</li>
+                        <li><i class="ph-bold ph-git-network"></i> Multi-Node Telemetry Aggregation</li>
+                        <li><i class="ph-bold ph-chart-line-up"></i> Encrypted CSV/JSON Datalake</li>
+                        <li><i class="ph-bold ph-code"></i> Secure REST API Access (+₹250/yr)</li>
+                    </ul>
+                    
+                    <button class="cta-btn solid deploy-trigger hover-target" style="width: 100%;">START PILOT PROGRAM</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer / Contact Terminal -->
+    <footer id="demo">
+        <div class="footer-grid">
+            <div class="reveal-up">
+                <h2 style="font-family: 'Bebas Neue'; font-size: 4.5rem; color: #fff; margin-bottom: 10px; line-height: 0.9;">ESTABLISH<br><span style="color: var(--emergency-red);">SECURE COMMS</span></h2>
+                <p style="color: var(--text-muted); line-height: 1.6; max-width: 450px; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; margin-bottom: 30px;">
+                    > Routing transmission to lead engineering...<br>
+                    > Awaiting formal institution authorization protocol to initiate pilot deployment or technical audit.
+                </p>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;">
+                    <span style="color: #555;">DIRECT PING_REQUEST:</span><br>
+                    <a href="mailto:pavan.24bec7039@vitapstudent.ac.in" class="footer-mail hover-target scramble-hover" style="display:inline-block; margin-top: 5px;">
+                        pavan.24bec7039@vitapstudent.ac.in
+                    </a>
+                </div>
+            </div>
+            
+            <div class="contact-terminal reveal-up hover-target" style="animation-delay: 0.2s;">
+                <div class="terminal-header">
+                    <div class="terminal-dot"></div><div class="terminal-dot"></div><div class="terminal-dot"></div>
+                </div>
+                <form class="contact-form" onsubmit="event.preventDefault(); showToast('TRANSMISSION SENT', 'Our engineers will connect via encrypted channel shortly.');">
+                    <input type="text" placeholder="INSTITUTION / HOSPITAL IDENTIFIER" required class="hover-target">
+                    <input type="email" placeholder="AUTHORIZATION EMAIL KEY" required class="hover-target">
+                    <textarea placeholder="DEPLOYMENT PARAMETERS (Ward Size, Intended Node Count, Network Config...)" rows="3" class="hover-target"></textarea>
+                    <button type="submit" class="hover-target">TRANSMIT PACKET</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="footer-bottom reveal-up">
+            <div>&copy; 2026 SMART IV PRO. MISSION CRITICAL HARDWARE.</div>
+            <div style="display: flex; align-items: center; gap: 8px;"><i class="ph-fill ph-map-pin" style="color: var(--emergency-red);"></i> VIT-AP UNIVERSITY, AMARAVATI LABS</div>
+        </div>
+    </footer>
+
+    <script>
+        // --- 1. SYSTEM INITIALIZATION & LOADER ---
+        const taglines = [
+            "CALIBRATING HX711 BRIDGE...", "INITIALIZING WATCHDOG TIMER...",
+            "ISOLATING VENOUS PRESSURE SPIKES...", "FILTERING EMI NOISE...",
+            "ARMING N/C SOLENOID...", "SYNCING AES-256 KEYS..."
+        ];
+
+        window.onload = () => {
+            let taglineIndex = 0;
+            const taglineEl = document.getElementById('loading-tagline');
+            const taglineInterval = setInterval(() => {
+                taglineIndex = (taglineIndex + 1) % taglines.length;
+                taglineEl.innerText = taglines[taglineIndex];
+            }, 300);
+
+            const tl = gsap.timeline();
+            tl.to(".loader-progress", { width: "100%", duration: 1.5, ease: "power4.inOut" })
+              .to("#loader", { y: "-100%", duration: 0.6, ease: "power4.inOut", onComplete: () => {
+                  clearInterval(taglineInterval);
+                  initInteractions();
+              }}, "+=0.1");
+        };
+
+        function initInteractions() {
+            gsap.registerPlugin(ScrollTrigger);
+
+            // Parallax Hero
+            gsap.to(".hero-img", { scrollTrigger: { trigger: ".hero", start: "top top", scrub: true }, y: 200, ease: "none" });
+
+            // Scroll Reveals
+            gsap.utils.toArray('.reveal-up').forEach(el => {
+                gsap.fromTo(el, { y: 40, opacity: 0 }, { scrollTrigger: { trigger: el, start: "top 85%" }, y: 0, opacity: 1, duration: 0.8, ease: "power3.out" });
+            });
+
+            initTargetLockCursor();
+            initScrambleText();
+            init3DHeroText();
+            init3DTilt();
+        }
+
+        // --- 1.5 HOLOGRAPHIC 3D HERO TEXT PHYSICS ---
+        function init3DHeroText() {
+            const heroSection = document.querySelector('.hero');
+            const title = document.querySelector('.hero-title');
+            
+            heroSection.addEventListener('mousemove', (e) => {
+                const rect = heroSection.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                // Calculate distance from center (-1 to 1)
+                const moveX = (x - centerX) / centerX;
+                const moveY = (y - centerY) / centerY;
+                
+                // Calculate Rotations
+                const rotateX = moveY * -12; // Max 12 deg tilt
+                const rotateY = moveX * 12;
+                
+                // Dynamic Chromatic Aberration (RGB Split Depth)
+                const shadowX = moveX * 20;
+                const shadowY = moveY * 20;
+                
+                title.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.05, 1.05, 1.05)`;
+                title.style.textShadow = `
+                    ${-shadowX}px ${-shadowY}px 0px rgba(255, 42, 42, 0.7),
+                    ${shadowX}px ${shadowY}px 0px rgba(0, 229, 255, 0.7),
+                    0px 25px 50px rgba(0,0,0,0.9)
+                `;
+            });
+            
+            heroSection.addEventListener('mouseleave', () => {
+                title.style.transform = `rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+                title.style.textShadow = `0px 10px 20px rgba(0,0,0,0.9)`;
+                title.style.transition = 'transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275), text-shadow 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            });
+            
+            heroSection.addEventListener('mouseenter', () => {
+                title.style.transition = 'none'; // Snap to mouse instantly on re-entry
+            });
+        }
+
+        // --- 1.6 3D CARD TILT PHYSICS ---
+        function init3DTilt() {
+            const cards = document.querySelectorAll('.tilt-card');
+            cards.forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    const rotateX = ((y - centerY) / centerY) * -8; // Max 8 deg rotation
+                    const rotateY = ((x - centerX) / centerX) * 8;
+                    
+                    card.style.transform = `perspective(1200px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = `perspective(1200px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+                    card.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                });
+                card.addEventListener('mouseenter', () => { card.style.transition = 'none'; });
+            });
+        }
+
+        // --- 2. TARGET-LOCK CURSOR PHYSICS ---
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorRing = document.querySelector('.cursor-ring');
+        const brackets = [
+            document.querySelector('.br-tl'), document.querySelector('.br-tr'),
+            document.querySelector('.br-bl'), document.querySelector('.br-br')
+        ];
+        
+        let mouseX = 0, mouseY = 0;
+        let ringX = 0, ringY = 0;
+        let isHovering = false;
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX; mouseY = e.clientY;
+            if(!isHovering) {
+                cursorDot.style.left = `${mouseX}px`; 
+                cursorDot.style.top = `${mouseY}px`;
+            }
+        });
+
+        // Smooth trailing
+        function renderCursor() {
+            if(!isHovering) {
+                ringX += (mouseX - ringX) * 0.2;
+                ringY += (mouseY - ringY) * 0.2;
+                cursorRing.style.left = `${ringX}px`; 
+                cursorRing.style.top = `${ringY}px`;
+            }
+            requestAnimationFrame(renderCursor);
+        }
+        renderCursor();
+
+        function initTargetLockCursor() {
+            const targets = document.querySelectorAll('.hover-target');
+            
+            targets.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    isHovering = true;
+                    cursorDot.style.opacity = '0';
+                    cursorRing.style.opacity = '0';
+                    
+                    const rect = el.getBoundingClientRect();
+                    const padding = 5;
+                    
+                    brackets.forEach(b => { b.style.opacity = '1'; });
+                    
+                    brackets[0].style.top = `${rect.top - padding}px`; brackets[0].style.left = `${rect.left - padding}px`;
+                    brackets[1].style.top = `${rect.top - padding}px`; brackets[1].style.left = `${rect.right + padding - 12}px`;
+                    brackets[2].style.top = `${rect.bottom + padding - 12}px`; brackets[2].style.left = `${rect.left - padding}px`;
+                    brackets[3].style.top = `${rect.bottom + padding - 12}px`; brackets[3].style.left = `${rect.right + padding - 12}px`;
+                });
+
+                el.addEventListener('mouseleave', () => {
+                    isHovering = false;
+                    cursorDot.style.opacity = '1';
+                    cursorRing.style.opacity = '1';
+                    
+                    // Reset brackets to mouse pos to snap back
+                    brackets.forEach(b => { 
+                        b.style.opacity = '0'; 
+                        b.style.top = `${mouseY}px`; b.style.left = `${mouseX}px`;
+                    });
+                    
+                    // Instantly snap dot back to mouse
+                    cursorDot.style.left = `${mouseX}px`; 
+                    cursorDot.style.top = `${mouseY}px`;
+                });
+            });
+        }
+
+        // --- 3. CYBER TEXT SCRAMBLE PHYSICS ---
+        function initScrambleText() {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*<>";
+            document.querySelectorAll('.scramble-hover').forEach(el => {
+                el.dataset.original = el.innerText;
+                el.addEventListener('mouseenter', e => {
+                    let iterations = 0;
+                    clearInterval(el.interval);
+                    el.interval = setInterval(() => {
+                        e.target.innerText = e.target.innerText.split("")
+                            .map((letter, index) => {
+                                if(index < iterations) return el.dataset.original[index];
+                                return chars[Math.floor(Math.random() * chars.length)];
+                            }).join("");
+                        
+                        if(iterations >= el.dataset.original.length) clearInterval(el.interval);
+                        iterations += 1 / 2; // Scramble speed
+                    }, 30);
+                });
+            });
+        }
+
+        // --- 4. SYSTEM TOAST ROUTING LOGIC ---
+        const deployBtns = document.querySelectorAll('.deploy-trigger');
+        deployBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.getElementById('demo').scrollIntoView({ behavior: 'smooth' });
+                setTimeout(() => {
+                    showToast("AUTHORIZATION REQUIRED", "Provide institution keys to initiate pilot deployment.");
+                }, 600);
+            });
+        });
+
+        function showToast(header, bodyText) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'sys-toast';
+            toast.innerHTML = `
+                <div class="toast-header">[ SYS_ALERT : ${header} ]</div>
+                <div class="toast-body">
+                    ${bodyText}<br>
+                    <span class="toast-email">PING: pavan.24bec7039@vitapstudent.ac.in</span>
+                </div>
+            `;
+            container.appendChild(toast);
+            
+            requestAnimationFrame(() => { requestAnimationFrame(() => { toast.classList.add('active'); }); });
+            
+            setTimeout(() => {
+                toast.classList.remove('active');
+                setTimeout(() => toast.remove(), 500);
+            }, 6000);
+        }
+
+        // --- 5. IMMERSIVE NETWORK CANVAS BACKGROUND ---
+        const canvas = document.getElementById('network-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, particles = [];
+
+        function resizeCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width; this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 0.5; this.vy = (Math.random() - 0.5) * 0.5;
+                this.baseSize = Math.random() * 2 + 0.5;
+                this.pulse = Math.random() * Math.PI * 2;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                this.pulse += 0.03;
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+            }
+            draw() {
+                ctx.beginPath(); 
+                // Ensure radius is never negative to prevent DOMException IndexSizeError
+                const radius = Math.max(0.1, this.baseSize + Math.sin(this.pulse) * 1);
+                ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 229, 255, ${0.2 + Math.sin(this.pulse) * 0.3})`; 
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < 150; i++) particles.push(new Particle());
+
+        function animateCanvas() {
+            ctx.clearRect(0, 0, width, height);
+            
+            particles.forEach(p => {
+                p.update(); p.draw();
+                
+                let connections = 0;
+                particles.forEach(p2 => {
+                    const dx = p.x - p2.x, dy = p.y - p2.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 100 && connections < 3) {
+                        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p2.x, p2.y);
+                        ctx.strokeStyle = `rgba(0, 229, 255, ${0.1 - dist/1000})`; 
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                        connections++;
+                    }
+                });
+
+                // Subtle repulsion from mouse to simulate data flow avoiding interference
+                const dxm = p.x - mouseX, dym = p.y - mouseY;
+                const distm = Math.sqrt(dxm*dxm + dym*dym);
+                if (distm < 150) {
+                    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(mouseX, mouseY);
+                    ctx.strokeStyle = `rgba(255, 42, 42, ${0.15 - distm/1000})`; 
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    p.x += dxm * 0.01; p.y += dym * 0.01; 
+                }
+            });
+            requestAnimationFrame(animateCanvas);
+        }
+        animateCanvas();
+
+    </script>
+</body>
+</html>
