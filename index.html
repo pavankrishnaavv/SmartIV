@@ -96,68 +96,6 @@
             .cursor-dot, .cursor-ring, .bracket { display: none !important; }
         }
 
-        /* --- AI COMMAND TERMINAL STYLES --- */
-        .ai-terminal-container {
-            padding: 100px 5%;
-            background: rgba(0,0,0,0.4);
-            position: relative;
-            z-index: 10;
-        }
-
-        .terminal-shell {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: #050508;
-            border: 1px solid #333;
-            border-top: 4px solid var(--neon-cyan);
-            height: 500px;
-            display: flex;
-            flex-direction: column;
-            font-family: 'JetBrains Mono', monospace;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
-        }
-
-        .terminal-header {
-            padding: 10px 20px;
-            background: #111;
-            border-bottom: 1px solid #222;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .terminal-controls { display: flex; gap: 8px; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; background: #333; }
-        .dot.red { background: var(--emergency-red); }
-        .dot.yellow { background: #ffb86c; }
-        .dot.green { background: var(--safety-green); }
-
-        .terminal-output {
-            flex-grow: 1;
-            padding: 20px;
-            overflow-y: auto;
-            color: var(--text-main);
-            font-size: 0.9rem;
-            line-height: 1.6;
-        }
-
-        .terminal-input-row {
-            display: flex;
-            padding: 15px 20px;
-            background: #0a0a0f;
-            border-top: 1px solid #222;
-        }
-
-        .terminal-prompt { color: var(--neon-cyan); margin-right: 10px; }
-        .terminal-input {
-            background: transparent;
-            border: none;
-            color: var(--neon-cyan);
-            outline: none;
-            width: 100%;
-            font-family: 'JetBrains Mono', monospace;
-        }
-
         /* --- SYSTEM TOAST NOTIFICATIONS --- */
         #toast-container {
             position: fixed; bottom: 40px; right: 40px; z-index: 10005;
@@ -378,7 +316,7 @@
         <div class="ticker-move">
             <div class="ticker-item"><i class="ph-fill ph-warning"></i> SENSOR_DELTA: ±0.02g</div>
             <div class="ticker-item"><i class="ph ph-activity"></i> VALVE_LATENCY: < 42ms</div>
-            <div class="ticker-item"><i class="ph ph-wifi-high"></i> PAYLOAD: AES-256 ENCRYPTED</div>
+            <div class="ticker-item"><i class="ph ph-wifi-high"></i> ENCRYPTION: TLS 1.2</div>
             <div class="ticker-item"><i class="ph ph-drop"></i> LOAD_CELL: HX711 SYNCED</div>
             <div class="ticker-item"><i class="ph ph-shield-check"></i> MCU_TEMP: 34°C</div>
             <!-- Duplicate -->
@@ -415,34 +353,6 @@
             <div class="video-wrapper hover-target reveal-up" style="animation-delay: 0.4s; margin-top: 60px;">
                 <img src="https://images.unsplash.com/photo-1551076805-e1869033e561?q=80&w=1932&auto=format&fit=crop" class="video-placeholder" alt="Device Demo">
                 <div class="play-btn"><i class="ph-fill ph-play"></i></div>
-            </div>
-        </div>
-    </section>
-
-    <!-- AI Command Interface Section -->
-    <section class="ai-terminal-container">
-        <div class="section-header reveal-up" style="text-align: center; margin-bottom: 40px;">
-            <div class="uvp-badge" style="background: var(--neon-cyan-dim); border-color: var(--neon-cyan); color: var(--neon-cyan);">SECURE AI COMMAND INTERFACE</div>
-            <h2 style="font-family: 'Bebas Neue'; font-size: clamp(2.5rem, 6vw, 4rem); letter-spacing: 2px;">TECHNICAL DIAGNOSTICS</h2>
-        </div>
-
-        <div class="terminal-shell reveal-up">
-            <div class="terminal-header">
-                <div class="terminal-controls">
-                    <div class="dot red"></div>
-                    <div class="dot yellow"></div>
-                    <div class="dot green"></div>
-                </div>
-                <div style="font-size: 0.7rem; color: #555;">SMART_IV_AI_v2.5_CORE</div>
-            </div>
-            <div class="terminal-output" id="ai-output">
-                <div>[SYSTEM] SECURE AI LINK ESTABLISHED.</div>
-                <div>[SYSTEM] STANDING BY FOR ARCHITECTURAL QUERIES.</div>
-                <div style="color: #555; font-size: 0.8rem; margin-top: 10px;">Try: "Explain the solenoid failsafe" or "How does MQTT encryption work?"</div>
-            </div>
-            <div class="terminal-input-row">
-                <span class="terminal-prompt">admin@smartiv_pro:~$</span>
-                <input type="text" id="ai-input" class="terminal-input" placeholder="Enter command..." autocomplete="off">
             </div>
         </div>
     </section>
@@ -550,110 +460,19 @@
                 </a>
             </div>
             <div class="contact-terminal reveal-up hover-target" style="animation-delay: 0.2s;">
-                <form class="contact-form" id="contact-form" onsubmit="event.preventDefault(); showToast('SENT', 'Transmission received.');">
-                    <input type="text" placeholder="INSTITUTION IDENTIFIER" id="form-hospital" required class="hover-target">
+                <form class="contact-form" onsubmit="event.preventDefault(); showToast('SENT', 'Transmission received.');">
+                    <input type="text" placeholder="INSTITUTION IDENTIFIER" required class="hover-target">
                     <input type="email" placeholder="AUTH EMAIL" required class="hover-target">
-                    <textarea placeholder="PARAMETERS (e.g., 50 beds, general ward)..." id="form-params" rows="3" class="hover-target"></textarea>
-                    <div style="display: flex; gap: 10px; margin-top: 5px;">
-                        <button type="submit" class="hover-target" style="flex-grow: 1;">TRANSMIT PACKET</button>
-                        <button type="button" id="optimize-btn" class="hover-target" style="background: var(--surface-light); color: var(--neon-cyan); border: 1px solid var(--neon-cyan-dim);">✨ OPTIMIZE</button>
-                    </div>
+                    <textarea placeholder="PARAMETERS..." rows="3" class="hover-target"></textarea>
+                    <button type="submit" class="hover-target">TRANSMIT PACKET</button>
                 </form>
             </div>
         </div>
     </footer>
 
     <script>
-        const apiKey = "";
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
-        // --- GEMINI API INTEGRATION ---
-        async function callGemini(prompt, systemInstruction) {
-            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: systemInstruction }] }
-            };
-
-            for (let i = 0; i < 5; i++) {
-                try {
-                    const response = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const data = await response.json();
-                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Error: No response generated.";
-                } catch (e) {
-                    const delay = Math.pow(2, i) * 1000;
-                    await new Promise(r => setTimeout(r, delay));
-                }
-            }
-            return "Connection Failed. Check satellite uplink.";
-        }
-
-        // AI Terminal Logic
-        const aiInput = document.getElementById('ai-input');
-        const aiOutput = document.getElementById('ai-output');
-
-        aiInput.addEventListener('keypress', async (e) => {
-            if (e.key === 'Enter' && aiInput.value.trim() !== '') {
-                const userQuery = aiInput.value;
-                aiInput.value = '';
-                
-                // Add user line
-                const userLine = document.createElement('div');
-                userLine.style.color = 'var(--neon-cyan)';
-                userLine.innerText = `admin@smartiv_pro:~$ ${userQuery}`;
-                aiOutput.appendChild(userLine);
-                aiOutput.scrollTop = aiOutput.scrollHeight;
-
-                // Add loading line
-                const loadingLine = document.createElement('div');
-                loadingLine.innerText = "[ANALYZING...]";
-                aiOutput.appendChild(loadingLine);
-
-                const response = await callGemini(
-                    userQuery,
-                    "You are the SMART IV PRO Technical Assistant. You provide technical details about our hardware: ESP32 core, HX711 24-bit sensor, Normally-Closed solenoid interceptor, MQTT TLS 1.2 encryption. Keep answers technical, concise, and professional. Use markdown formatting sparingly."
-                );
-
-                loadingLine.remove();
-                const aiLine = document.createElement('div');
-                aiLine.innerText = `[AI]: ${response}`;
-                aiOutput.appendChild(aiLine);
-                aiOutput.scrollTop = aiOutput.scrollHeight;
-            }
-        });
-
-        // Optimization Logic
-        const optimizeBtn = document.getElementById('optimize-btn');
-        optimizeBtn.addEventListener('click', async () => {
-            const params = document.getElementById('form-params').value;
-            const hospital = document.getElementById('form-hospital').value;
-
-            if (!params) {
-                showToast("INPUT REQ", "Specify parameters for AI optimization.");
-                return;
-            }
-
-            optimizeBtn.innerText = "✨ ANALYZING...";
-            optimizeBtn.disabled = true;
-
-            const prompt = `Based on these parameters: "${params}" for ${hospital || 'a hospital'}, suggest an optimal SMART IV PRO deployment strategy (Solo Edge vs Ward Master units, estimated coverage, network topology).`;
-            const suggestion = await callGemini(
-                prompt,
-                "You are the SMART IV Deployment Architect. Provide a short, structured recommendation for hospital ward deployment. Focus on unit counts and network setup. Be highly professional."
-            );
-
-            document.getElementById('form-params').value = suggestion;
-            optimizeBtn.innerText = "✨ OPTIMIZED";
-            optimizeBtn.disabled = false;
-            showToast("AI OPTIMIZED", "Deployment strategy generated via LLM.");
-        });
-
-        // --- CORE UI LOGIC ---
         window.onload = () => {
             const tl = gsap.timeline();
             tl.to(".loader-progress", { width: "100%", duration: 1.2, ease: "power2.inOut" })
@@ -675,7 +494,7 @@
             initScrambleText();
         }
 
-        // Cursor Logic
+        // --- UPDATED CURSOR LOGIC ---
         const cursorDot = document.querySelector('.cursor-dot');
         const cursorRing = document.querySelector('.cursor-ring');
         const brackets = document.querySelectorAll('.bracket');
@@ -710,7 +529,7 @@
         }
 
         function initTargetLockCursor() {
-            const targets = document.querySelectorAll('.hover-target, .terminal-input, .ai-terminal-container input');
+            const targets = document.querySelectorAll('.hover-target');
             targets.forEach(el => {
                 el.addEventListener('mouseenter', () => {
                     hoveredTarget = el;
@@ -791,7 +610,7 @@
             setTimeout(() => { toast.classList.remove('active'); setTimeout(() => toast.remove(), 500); }, 5000);
         }
 
-        // Canvas Particles
+        // --- RESTORED CANVAS PARTICLES (WITH MOUSE INTERACTION) ---
         const canvas = document.getElementById('network-canvas');
         const ctx = canvas.getContext('2d');
         let w, h, parts = [];
@@ -823,6 +642,7 @@
             parts.forEach(p => {
                 p.update();
                 p.draw();
+                
                 parts.forEach(p2 => {
                     const d = Math.hypot(p.x-p2.x, p.y-p2.y);
                     if(d<120) { 
@@ -830,6 +650,8 @@
                         ctx.strokeStyle=`rgba(0,229,255,${0.15-d/1000})`; ctx.stroke(); 
                     }
                 });
+
+                // MOUSE REPULSION PHYSICS (RESTORED)
                 if (!isTouchDevice) {
                     const dxm = p.x - mouseX, dym = p.y - mouseY;
                     const distm = Math.sqrt(dxm*dxm + dym*dym);
